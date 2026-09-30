@@ -135,6 +135,8 @@ public final class ClobOrderBook {
     public CurrencyPair getCurrencyPair() { return currencyPair; }
     public synchronized double getBestBid() { return bestBid; }
     public synchronized double getBestAsk() { return bestAsk; }
+    public synchronized double getBestBidSize() { return bestBidSize; }
+    public synchronized double getBestAskSize() { return bestAskSize; }
     public synchronized double getSpread() { return bestAsk - bestBid; }
     public synchronized double getMid() { return (bestBid + bestAsk) * 0.5; }
     public synchronized int getBidDepth() { return bidBook.size(); }

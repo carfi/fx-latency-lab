@@ -80,7 +80,8 @@ public final class LatencyMetricsCollector {
                                                      double stage1Ratio,
                                                      double stage2Ratio,
                                                      long stage1Coalesced,
-                                                     long stage2Coalesced) {
+                                                     long stage2Coalesced,
+                                                     java.util.List<com.fx.lab.core.model.PairPriceSnapshot> pairPrices) {
         long nowNs = System.nanoTime();
         double elapsedSec = Math.max(0.001, (nowNs - lastSnapshotTimeNs) / 1_000_000_000.0);
 
@@ -147,7 +148,8 @@ public final class LatencyMetricsCollector {
                 stage1Ratio,
                 stage2Ratio,
                 stage1Coalesced,
-                stage2Coalesced
+                stage2Coalesced,
+                pairPrices != null ? pairPrices : java.util.Collections.emptyList()
         );
     }
 

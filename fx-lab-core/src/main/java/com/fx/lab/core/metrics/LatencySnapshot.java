@@ -38,6 +38,8 @@ public record LatencySnapshot(
         double stage1CoalescingRatio,
         double stage2CoalescingRatio,
         long stage1CoalescedCount,
-        long stage2CoalescedCount
+        long stage2CoalescedCount,
+        // Generated pair prices
+        java.util.List<com.fx.lab.core.model.PairPriceSnapshot> pairPrices
 ) {
 }

@@ -149,13 +149,33 @@ public final class TradingPipeline implements AutoCloseable {
         int totalQueue = q1 + q2;
         int virtualBacklog = (int) (coalescer1.getCoalescedCount() + coalescer2.getCoalescedCount());
 
+        java.util.List<com.fx.lab.core.model.PairPriceSnapshot> pairPrices = new java.util.ArrayList<>(CurrencyPair.COUNT);
+        for (int i = 0; i < CurrencyPair.COUNT; i++) {
+            CurrencyPair pair = CurrencyPair.fromId(i);
+            ClobOrderBook book = clobBooks[i];
+            pairPrices.add(new com.fx.lab.core.model.PairPriceSnapshot(
+                    i,
+                    pair.getSymbol(),
+                    book.getBestBid(),
+                    book.getBestAsk(),
+                    book.getSpread(),
+                    book.getMid(),
+                    book.getBestBidSize(),
+                    book.getBestAskSize(),
+                    pair.getPrecision(),
+                    coalescer1.getDepth(pair),
+                    coalescer2.getDepth(pair)
+            ));
+        }
+
         return metricsCollector.getSnapshot(
                 totalQueue,
                 virtualBacklog,
                 coalescer1.getCoalescingRatio(),
                 coalescer2.getCoalescingRatio(),
                 coalescer1.getCoalescedCount(),
-                coalescer2.getCoalescedCount()
+                coalescer2.getCoalescedCount(),
+                pairPrices
         );
     }
 
