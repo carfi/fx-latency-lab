@@ -1,0 +1,19 @@
+{
+  "modelType": "LINEAR_MULTIVARIATE",
+  "intercept": 842.15,
+  "avgHiddenLatencyWeight": 0.985,
+  "depthWeight": 142.30,
+  "oldestHiddenLatencyWeight": 0.045,
+  "newestHiddenLatencyWeight": 0.0,
+  "depthSquaredWeight": 0.0,
+  "targetLatencyNanos": 50000.0,
+  "meanAbsoluteErrorNanos": 3120.45,
+  "medianAbsoluteErrorNanos": 2840.10,
+  "p95AbsoluteErrorNanos": 6450.80,
+  "p99AbsoluteErrorNanos": 8920.00,
+  "biasNanos": -180.25,
+  "correlation": 0.9942,
+  "relativeError": 4.12,
+  "sampleCount": 2450,
+  "calibratedTimestamp": 1727727600000
+}

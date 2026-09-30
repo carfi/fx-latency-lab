@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FX CLOB Coalescing Latency Lab</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            900: '#0B0F19',
+                            800: '#111827',
+                            700: '#1F2937',
+                            600: '#374151'
+                        },
+                        brand: {
+                            cyan: '#06B6D4',
+                            blue: '#3B82F6',
+                            purple: '#8B5CF6'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glow-cyan { box-shadow: 0 0 15px rgba(6, 182, 212, 0.35); }
+        .glow-red { box-shadow: 0 0 15px rgba(239, 68, 68, 0.45); }
+        .glow-green { box-shadow: 0 0 15px rgba(16, 185, 129, 0.35); }
+        .glow-amber { box-shadow: 0 0 15px rgba(245, 158, 11, 0.35); }
+    </style>
+</head>
+<body class="bg-dark-900 text-slate-100 font-sans antialiased min-h-screen">
+
+    <!-- Top Navigation Header -->
+    <header class="border-b border-dark-700 bg-dark-800/80 backdrop-blur sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-3 h-3 rounded-full bg-cyan-400 animate-pulse"></div>
+            <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-300 bg-clip-text text-transparent">
+                FX CLOB Coalescing Latency Lab
+            </h1>
+            <span class="text-xs px-2 py-0.5 rounded bg-dark-700 text-slate-400 border border-dark-600 font-mono">Java 21 Engine</span>
+        </div>
+
+        <!-- Scenario & Pressure Status Badges -->
+        <div class="flex items-center space-x-4">
+            <div id="recordingBadge" class="hidden flex items-center space-x-1.5 px-3 py-1 rounded-full bg-red-950/80 border border-red-600 text-red-400 text-xs font-semibold animate-pulse">
+                <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                <span id="recordingText">RECORDING RAW STREAM</span>
+            </div>
+
+            <div class="flex items-center space-x-2 bg-dark-700/60 px-3 py-1 rounded-lg border border-dark-600 text-xs">
+                <span class="text-slate-400">Scenario:</span>
+                <span id="headerScenario" class="font-bold text-cyan-400">NORMAL</span>
+            </div>
+
+            <div id="pressureBadge" class="flex items-center space-x-2 px-3 py-1 rounded-lg border border-emerald-500/40 bg-emerald-950/40 text-emerald-400 text-xs font-bold transition-all">
+                <span>Pressure:</span>
+                <span id="pressureRatio">0.00x</span>
+                <span id="pressureStatus" class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-[10px]">HEALTHY</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <div class="bg-dark-800 border-b border-dark-700 px-6 py-2 flex space-x-3 text-sm font-medium">
+        <button onclick="switchTab('dashboard')" id="tab-dashboard" class="px-4 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">Dashboard</button>
+        <button onclick="switchTab('pipeline')" id="tab-pipeline" class="px-4 py-1.5 rounded-lg text-slate-400 hover:text-slate-200">Pipeline Flow</button>
+        <button onclick="switchTab('control')" id="tab-control" class="px-4 py-1.5 rounded-lg text-slate-400 hover:text-slate-200">Simulation Control</button>
+        <button onclick="switchTab('offline')" id="tab-offline" class="px-4 py-1.5 rounded-lg text-slate-400 hover:text-slate-200">Offline Replay & Calibration</button>
+    </div>
+
+    <!-- Main Container -->
+    <main class="p-6 max-w-7xl mx-auto space-y-6">
+
+        <!-- ================= TAB 1: DASHBOARD ================= -->
+        <section id="view-dashboard" class="space-y-6">
+            <!-- Top Stat Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div class="bg-dark-800 border border-dark-700 rounded-xl p-4">
+                    <div class="text-xs text-slate-400 font-medium">Input Rate</div>
+                    <div id="statInputRate" class="text-2xl font-bold text-slate-100 font-mono mt-1">0 <span class="text-xs text-slate-500">/s</span></div>
+                    <div class="text-[11px] text-slate-500 mt-1">Market Data In</div>
+                </div>
+
+                <div class="bg-dark-800 border border-dark-700 rounded-xl p-4">
+                    <div class="text-xs text-slate-400 font-medium">Published Rate</div>
+                    <div id="statPubRate" class="text-2xl font-bold text-slate-100 font-mono mt-1">0 <span class="text-xs text-slate-500">/s</span></div>
+                    <div class="text-[11px] text-slate-500 mt-1">Book updates emitted</div>
+                </div>
+
+                <div class="bg-dark-800 border border-dark-700 rounded-xl p-4">
+                    <div class="text-xs text-slate-400 font-medium">Coalescing Ratio</div>
+                    <div id="statRatio" class="text-2xl font-bold text-cyan-400 font-mono mt-1">0.0%</div>
+                    <div id="statCoalescedTotal" class="text-[11px] text-slate-500 mt-1">0 discarded updates</div>
+                </div>
+
+                <div class="bg-dark-800 border border-dark-700 rounded-xl p-4">
+                    <div class="text-xs text-slate-400 font-medium">Actual Latency (P99)</div>
+                    <div id="statActualP99" class="text-2xl font-bold text-emerald-400 font-mono mt-1">0 <span class="text-xs text-slate-500">μs</span></div>
+                    <div class="text-[11px] text-slate-500 mt-1">Deceptively low when coalescing</div>
+                </div>
+
+                <div class="bg-dark-800 border border-dark-700 rounded-xl p-4">
+                    <div class="text-xs text-slate-400 font-medium">Expected Hidden Latency</div>
+                    <div id="statHiddenLatency" class="text-2xl font-bold text-amber-400 font-mono mt-1">0 <span class="text-xs text-slate-500">μs</span></div>
+                    <div id="statOldestHidden" class="text-[11px] text-slate-500 mt-1">Oldest: 0 μs</div>
+                </div>
+
+                <div class="bg-dark-800 border border-dark-700 rounded-xl p-4">
+                    <div class="text-xs text-slate-400 font-medium">Queue & Virtual Backlog</div>
+                    <div id="statQueue" class="text-2xl font-bold text-indigo-400 font-mono mt-1">0</div>
+                    <div id="statVirtualBacklog" class="text-[11px] text-slate-500 mt-1">Backlog: 0 msgs</div>
+                </div>
+            </div>
+
+            <!-- Real-time Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Latency Chart: Actual vs Hidden -->
+                <div class="bg-dark-800 border border-dark-700 rounded-xl p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 class="font-bold text-slate-100">Measured vs Hidden Latency</h2>
+                            <p class="text-xs text-slate-400">Notice actual P99 latency stays flat while expected hidden latency spikes under pressure</p>
+                        </div>
+                        <span class="text-xs font-mono text-slate-400">Unit: Microseconds (μs)</span>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="latencyChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Throughput & Coalescing Ratio Chart -->
+                <div class="bg-dark-800 border border-dark-700 rounded-xl p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 class="font-bold text-slate-100">Throughput & Coalescing Dynamics</h2>
+                            <p class="text-xs text-slate-400">Input stream vs published throughput with coalescing ratio overlay</p>
+                        </div>
+                        <span class="text-xs font-mono text-slate-400">Updates / sec</span>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="throughputChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 2: PIPELINE FLOW ================= -->
+        <section id="view-pipeline" class="hidden space-y-6">
+            <div class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-lg font-bold text-slate-100 mb-2">Live End-to-End Trading Pipeline Flow</h2>
+                <p class="text-sm text-slate-400 mb-8">Inspect message flow across each stage and see which coalescer absorbs pressure.</p>
+
+                <!-- Visual Diagram -->
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+                    
+                    <!-- Stage 1: Market Data Generator / Feed Handler -->
+                    <div class="bg-dark-900 border border-dark-600 rounded-xl p-4 text-center space-y-2 relative">
+                        <div class="text-xs font-bold text-cyan-400 uppercase tracking-wider">Feed Handler</div>
+                        <div class="text-xl font-bold font-mono" id="pipeFeedRate">0/s</div>
+                        <div class="text-[11px] text-slate-400">Validates sequence</div>
+                        <div class="text-[10px] text-slate-500 font-mono">Arrival T-stamp</div>
+                    </div>
+
+                    <!-- Flow Arrow -->
+                    <div class="hidden md:flex justify-center text-slate-500 text-xl font-bold">➔</div>
+
+                    <!-- Stage 2: Coalescer #1 -->
+                    <div class="bg-dark-900 border-2 border-cyan-500/40 rounded-xl p-4 text-center space-y-2 relative">
+                        <div class="inline-block px-2 py-0.5 bg-cyan-500/20 text-cyan-300 text-[10px] font-bold rounded">COALESCER #1</div>
+                        <div class="text-sm font-bold text-slate-200">Pre-CLOB Slot Buffer</div>
+                        <div class="text-xs text-slate-400 font-mono">Ratio: <span id="pipeC1Ratio" class="font-bold text-cyan-400">0.0%</span></div>
+                        <div class="text-[10px] text-slate-500">Coalesced: <span id="pipeC1Count">0</span></div>
+                    </div>
+
+                    <!-- Flow Arrow -->
+                    <div class="hidden md:flex justify-center text-slate-500 text-xl font-bold">➔</div>
+
+                    <!-- Stage 3: CLOB Matching Engine -->
+                    <div class="bg-dark-900 border border-dark-600 rounded-xl p-4 text-center space-y-2 relative">
+                        <div class="text-xs font-bold text-indigo-400 uppercase tracking-wider">Multi-Pair CLOB</div>
+                        <div class="text-xl font-bold font-mono" id="pipeClobRate">0/s</div>
+                        <div class="text-[11px] text-slate-400">6 Currency Pairs</div>
+                        <div class="text-[10px] text-slate-500 font-mono">Ladder & BBO Calc</div>
+                    </div>
+
+                    <!-- Flow Arrow -->
+                    <div class="hidden md:flex justify-center text-slate-500 text-xl font-bold">➔</div>
+
+                    <!-- Stage 4: Coalescer #2 -->
+                    <div class="bg-dark-900 border-2 border-purple-500/40 rounded-xl p-4 text-center space-y-2 relative">
+                        <div class="inline-block px-2 py-0.5 bg-purple-500/20 text-purple-300 text-[10px] font-bold rounded">COALESCER #2</div>
+                        <div class="text-sm font-bold text-slate-200">Pre-Publish Slot Buffer</div>
+                        <div class="text-xs text-slate-400 font-mono">Ratio: <span id="pipeC2Ratio" class="font-bold text-purple-400">0.0%</span></div>
+                        <div class="text-[10px] text-slate-500">Coalesced: <span id="pipeC2Count">0</span></div>
+                    </div>
+
+                    <!-- Flow Arrow -->
+                    <div class="hidden md:flex justify-center text-slate-500 text-xl font-bold">➔</div>
+
+                    <!-- Stage 5: Publisher & Estimator -->
+                    <div class="bg-dark-900 border border-dark-600 rounded-xl p-4 text-center space-y-2 relative">
+                        <div class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Publisher & Estimator</div>
+                        <div class="text-xl font-bold font-mono" id="pipePubRate">0/s</div>
+                        <div class="text-[11px] text-slate-400">Zero-allocation state</div>
+                        <div class="text-[10px] text-emerald-400 font-mono">Publishes BBO</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 3: SIMULATION CONTROL ================= -->
+        <section id="view-control" class="hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Scenario Presets -->
+                <div class="bg-dark-800 border border-dark-700 rounded-xl p-5 space-y-4">
+                    <h2 class="font-bold text-slate-100 text-base">Traffic Scenario Presets</h2>
+                    <p class="text-xs text-slate-400">Select predefined traffic profiles to observe coalescing behavior</p>
+
+                    <div class="space-y-2">
+                        <button onclick="selectScenario('NORMAL')" class="w-full text-left p-3 rounded-lg border border-dark-600 bg-dark-900/60 hover:border-cyan-500 hover:bg-dark-700 transition">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-slate-200">NORMAL</span>
+                                <span class="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-400">5k/s</span>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-1">Stable throughput within nominal capacity.</div>
+                        </button>
+
+                        <button onclick="selectScenario('BURST')" class="w-full text-left p-3 rounded-lg border border-dark-600 bg-dark-900/60 hover:border-cyan-500 hover:bg-dark-700 transition">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-slate-200">BURST</span>
+                                <span class="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-400">8k/s + Bursts</span>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-1">Periodic high-rate bursts every 2 seconds.</div>
+                        </button>
+
+                        <button onclick="selectScenario('HIGH_LOAD')" class="w-full text-left p-3 rounded-lg border border-dark-600 bg-dark-900/60 hover:border-cyan-500 hover:bg-dark-700 transition">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-slate-200">HIGH_LOAD</span>
+                                <span class="text-xs px-2 py-0.5 rounded bg-amber-950 text-amber-400">25k/s</span>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-1">Near maximum capacity with moderate coalescing.</div>
+                        </button>
+
+                        <button onclick="selectScenario('OVERLOAD')" class="w-full text-left p-3 rounded-lg border border-red-500/40 bg-red-950/20 hover:border-red-500 hover:bg-red-950/40 transition">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-red-300">OVERLOAD</span>
+                                <span class="text-xs px-2 py-0.5 rounded bg-red-950 text-red-400">70k/s</span>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-1">Forces deep coalescing to demonstrate hidden latency divergence!</div>
+                        </button>
+
+                        <button onclick="selectScenario('RECOVERY')" class="w-full text-left p-3 rounded-lg border border-dark-600 bg-dark-900/60 hover:border-cyan-500 hover:bg-dark-700 transition">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-slate-200">RECOVERY</span>
+                                <span class="text-xs px-2 py-0.5 rounded bg-blue-950 text-blue-400">5k/s</span>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-1">Traffic returns to normal after an overload surge.</div>
+                        </button>
+
+                        <button onclick="selectScenario('EXTREME_COALESCING')" class="w-full text-left p-3 rounded-lg border border-purple-500/40 bg-purple-950/20 hover:border-purple-500 transition">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-purple-300">EXTREME_COALESCING</span>
+                                <span class="text-xs px-2 py-0.5 rounded bg-purple-950 text-purple-400">150k/s</span>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-1">Massive volume producing depth &gt; 50.</div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Parameters Form -->
+                <div class="bg-dark-800 border border-dark-700 rounded-xl p-5 space-y-4">
+                    <h2 class="font-bold text-slate-100 text-base">Pipeline Tuning</h2>
+                    <p class="text-xs text-slate-400">Adjust generator rates and coalescing stages</p>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-xs text-slate-300 font-medium">Input Rate (updates/s): <span id="rateLabel" class="text-cyan-400 font-bold">5,000</span></label>
+                            <input id="inputRateSlider" type="range" min="1000" max="150000" step="1000" value="5000" oninput="updateRateLabel(this.value)" class="w-full accent-cyan-500 mt-1">
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-slate-300 font-medium">Burst Size: <span id="burstLabel" class="text-cyan-400 font-bold">1</span></label>
+                            <input id="burstSlider" type="range" min="1" max="10000" step="50" value="1" oninput="document.getElementById('burstLabel').innerText = this.value" class="w-full accent-cyan-500 mt-1">
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-slate-300 font-medium">Target Latency: <span id="targetLatencyLabel" class="text-cyan-400 font-bold">50</span> μs</label>
+                            <input id="targetLatencySlider" type="range" min="10" max="500" step="10" value="50" oninput="document.getElementById('targetLatencyLabel').innerText = this.value" class="w-full accent-cyan-500 mt-1">
+                        </div>
+
+                        <div class="pt-2 border-t border-dark-700 space-y-2">
+                            <label class="flex items-center space-x-2 text-sm text-slate-300 cursor-pointer">
+                                <input type="checkbox" id="toggleC1" checked onchange="togglePipelineStages()" class="rounded bg-dark-900 border-dark-600 text-cyan-500 focus:ring-0">
+                                <span>Enable Coalescer #1 (Pre-CLOB)</span>
+                            </label>
+                            <label class="flex items-center space-x-2 text-sm text-slate-300 cursor-pointer">
+                                <input type="checkbox" id="toggleC2" checked onchange="togglePipelineStages()" class="rounded bg-dark-900 border-dark-600 text-purple-500 focus:ring-0">
+                                <span>Enable Coalescer #2 (Pre-Publish)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Simulation Action Controls -->
+                <div class="bg-dark-800 border border-dark-700 rounded-xl p-5 space-y-4">
+                    <h2 class="font-bold text-slate-100 text-base">Execution Controls</h2>
+                    <p class="text-xs text-slate-400">Trigger live generator runs and record streams for offline calibration</p>
+
+                    <div class="space-y-3 pt-2">
+                        <button onclick="startSimulation()" class="w-full py-2.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-dark-900 font-bold transition flex items-center justify-center space-x-2">
+                            <span>▶ Start Simulation</span>
+                        </button>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="pauseSimulation()" class="py-2 rounded-lg bg-dark-700 hover:bg-dark-600 text-slate-200 font-semibold text-sm transition">
+                                ⏸ Pause
+                            </button>
+                            <button onclick="resumeSimulation()" class="py-2 rounded-lg bg-dark-700 hover:bg-dark-600 text-slate-200 font-semibold text-sm transition">
+                                ⏯ Resume
+                            </button>
+                        </div>
+
+                        <button onclick="stopSimulation()" class="w-full py-2 rounded-lg bg-dark-700 hover:bg-dark-600 text-rose-300 font-semibold text-sm transition">
+                            ⏹ Stop Simulation
+                        </button>
+
+                        <button onclick="resetSimulation()" class="w-full py-2 rounded-lg bg-dark-700/60 hover:bg-dark-600 text-slate-400 font-semibold text-sm transition">
+                            ↺ Reset Metrics & Queues
+                        </button>
+
+                        <div class="pt-3 border-t border-dark-700 space-y-2">
+                            <button id="btnRecord" onclick="toggleRecording()" class="w-full py-2 rounded-lg border border-red-500/50 bg-red-950/30 hover:bg-red-950/60 text-red-300 font-semibold text-sm transition flex items-center justify-center space-x-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                                <span id="recordBtnText">Record Raw Stream (.bin)</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 4: OFFLINE REPLAY & CALIBRATION ================= -->
+        <section id="offline" class="hidden space-y-6">
+            <!-- Offline Controls Banner -->
+            <div class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-100">Counterfactual Latency Ground Truth & Calibration</h2>
+                        <p class="text-sm text-slate-400">Replays raw binary streams with coalescing ON vs OFF to benchmark online estimator accuracy</p>
+                    </div>
+
+                    <div class="flex items-center space-x-3">
+                        <select id="recordingSelect" class="bg-dark-900 border border-dark-600 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-500">
+                            <option value="">No recordings loaded</option>
+                        </select>
+                        <button onclick="refreshRecordings()" class="p-2 rounded-lg bg-dark-700 hover:bg-dark-600 text-slate-300 text-sm">↻</button>
+                        <button onclick="executeReplay()" class="px-5 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-dark-900 font-bold hover:brightness-110 transition">
+                            Run Replay & Calibrate
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Offline Analysis Cards -->
+            <div id="replayResultSection" class="hidden space-y-6">
+                <!-- Accuracy Metrics Scorecard -->
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    <div class="bg-dark-800 border border-dark-700 rounded-xl p-4">
+                        <div class="text-xs text-slate-400 font-medium">Matched Updates</div>
+                        <div id="resMatched" class="text-2xl font-bold text-slate-100 font-mono mt-1">0</div>
+                        <div class="text-[11px] text-slate-500 mt-1">Surviving quotes</div>
+                    </div>
+
+                    <div class="bg-dark-800 border border-dark-700 rounded-xl p-4">
+                        <div class="text-xs text-slate-400 font-medium">Mean Estimator Bias</div>
+                        <div id="resBias" class="text-2xl font-bold font-mono mt-1">0 <span class="text-xs text-slate-500">μs</span></div>
+                        <div class="text-[11px] text-slate-500 mt-1">Estimated - True</div>
+                    </div>
+
+                    <div class="bg-dark-800 border border-dark-700 rounded-xl p-4">
+                        <div class="text-xs text-slate-400 font-medium">MAE (Mean Abs Error)</div>
+                        <div id="resMae" class="text-2xl font-bold text-cyan-400 font-mono mt-1">0 <span class="text-xs text-slate-500">μs</span></div>
+                        <div class="text-[11px] text-slate-500 mt-1">Average discrepancy</div>
+                    </div>
+
+                    <div class="bg-dark-800 border border-dark-700 rounded-xl p-4">
+                        <div class="text-xs text-slate-400 font-medium">P95 Absolute Error</div>
+                        <div id="resP95" class="text-2xl font-bold text-amber-400 font-mono mt-1">0 <span class="text-xs text-slate-500">μs</span></div>
+                        <div class="text-[11px] text-slate-500 mt-1">95th percentile error</div>
+                    </div>
+
+                    <div class="bg-dark-800 border border-dark-700 rounded-xl p-4">
+                        <div class="text-xs text-slate-400 font-medium">Pearson Correlation (r)</div>
+                        <div id="resCorrelation" class="text-2xl font-bold text-emerald-400 font-mono mt-1">0.000</div>
+                        <div class="text-[11px] text-slate-500 mt-1">Tracking strength</div>
+                    </div>
+
+                    <div class="bg-dark-800 border border-dark-700 rounded-xl p-4">
+                        <div class="text-xs text-slate-400 font-medium">Relative Error</div>
+                        <div id="resRelError" class="text-2xl font-bold text-indigo-400 font-mono mt-1">0.0%</div>
+                        <div class="text-[11px] text-slate-500 mt-1">MAE / True Mean</div>
+                    </div>
+                </div>
+
+                <!-- Replay Overlay Chart -->
+                <div class="bg-dark-800 border border-dark-700 rounded-xl p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 class="font-bold text-slate-100">Estimated Hidden Latency vs Ground Truth Counterfactual Latency</h2>
+                            <p class="text-xs text-slate-400">Comparing online estimator output against true counterfactual latency obtained from coalescing OFF replay</p>
+                        </div>
+                        <span class="text-xs font-mono text-slate-400">Microseconds (μs)</span>
+                    </div>
+                    <div class="h-72">
+                        <canvas id="replayComparisonChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Calibration Model Output -->
+                <div class="bg-dark-800 border border-dark-700 rounded-xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div>
+                        <div class="text-xs font-bold uppercase tracking-wider text-cyan-400">Calibrated Model Coefficients (OLS Multivariate)</div>
+                        <div id="modelFormula" class="text-sm font-mono text-slate-300 mt-1">
+                            L_hat = 0.0 + 1.0 * L_avg + 0.0 * depth + 0.0 * L_oldest
+                        </div>
+                        <div class="text-xs text-slate-400 mt-0.5">Ready to hot-reload dynamically into the live trading pipeline</div>
+                    </div>
+
+                    <button onclick="applyCalibration()" class="px-6 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-dark-900 font-bold transition">
+                        ✓ Apply Calibration to Live Engine
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Client-side Logic -->
+    <script>
+        // State
+        let currentTab = 'dashboard';
+        let isRecording = false;
+        let isRunning = false;
+        let latestCalibratedConfig = null;
+
+        // Charts
+        let latencyChart = null;
+        let throughputChart = null;
+        let replayChart = null;
+
+        const maxPoints = 30;
+        const chartTimes = [];
+        const actualP99Data = [];
+        const hiddenData = [];
+        const oldestHiddenData = [];
+        const inputRateData = [];
+        const pubRateData = [];
+        const ratioData = [];
+
+        function initCharts() {
+            const ctxLat = document.getElementById('latencyChart').getContext('2d');
+            latencyChart = new Chart(ctxLat, {
+                type: 'line',
+                data: {
+                    labels: chartTimes,
+                    datasets: [
+                        {
+                            label: 'Expected Hidden Latency (μs)',
+                            data: hiddenData,
+                            borderColor: '#F59E0B',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.2
+                        },
+                        {
+                            label: 'Oldest Hidden Latency (μs)',
+                            data: oldestHiddenData,
+                            borderColor: '#EF4444',
+                            borderWidth: 1.5,
+                            borderDash: [4, 4],
+                            fill: false,
+                            tension: 0.2
+                        },
+                        {
+                            label: 'Actual Measured Latency P99 (μs)',
+                            data: actualP99Data,
+                            borderColor: '#10B981',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: { display: false },
+                        y: {
+                            grid: { color: '#1F2937' },
+                            ticks: { color: '#9CA3AF' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#E5E7EB', font: { size: 11 } } }
+                    }
+                }
+            });
+
+            const ctxThr = document.getElementById('throughputChart').getContext('2d');
+            throughputChart = new Chart(ctxThr, {
+                type: 'line',
+                data: {
+                    labels: chartTimes,
+                    datasets: [
+                        {
+                            label: 'Input Rate (/s)',
+                            data: inputRateData,
+                            borderColor: '#06B6D4',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.2,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Published Rate (/s)',
+                            data: pubRateData,
+                            borderColor: '#8B5CF6',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.2,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Coalescing Ratio (%)',
+                            data: ratioData,
+                            borderColor: '#EC4899',
+                            borderWidth: 1.5,
+                            borderDash: [3, 3],
+                            fill: false,
+                            tension: 0.2,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: { display: false },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            grid: { color: '#1F2937' },
+                            ticks: { color: '#9CA3AF' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            min: 0,
+                            max: 100,
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: '#EC4899', callback: (v) => v + '%' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#E5E7EB', font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+
+        function switchTab(tabId) {
+            currentTab = tabId;
+            ['dashboard', 'pipeline', 'control', 'offline'].forEach(t => {
+                const el = document.getElementById('view-' + t) || document.getElementById(t);
+                const btn = document.getElementById('tab-' + t);
+                if (el) el.classList.toggle('hidden', t !== tabId);
+                if (btn) {
+                    if (t === tabId) {
+                        btn.className = "px-4 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/30";
+                    } else {
+                        btn.className = "px-4 py-1.5 rounded-lg text-slate-400 hover:text-slate-200";
+                    }
+                }
+            });
+            if (tabId === 'offline') {
+                refreshRecordings();
+            }
+        }
+
+        // SSE Telemetry Connection
+        function connectSse() {
+            const eventSource = new EventSource('/api/stream/metrics');
+            eventSource.addEventListener('metrics', function(e) {
+                const data = JSON.parse(e.data);
+                updateTelemetryUI(data);
+            });
+            eventSource.onerror = function() {
+                eventSource.close();
+                setTimeout(connectSse, 2000);
+            };
+        }
+
+        function updateTelemetryUI(m) {
+            // Stat Cards
+            document.getElementById('statInputRate').innerHTML = Math.round(m.inputMessagesPerSec).toLocaleString() + ' <span class="text-xs text-slate-500">/s</span>';
+            document.getElementById('statPubRate').innerHTML = Math.round(m.publishedMessagesPerSec).toLocaleString() + ' <span class="text-xs text-slate-500">/s</span>';
+            document.getElementById('statRatio').innerText = (m.coalescingRatio * 100).toFixed(1) + '%';
+            document.getElementById('statCoalescedTotal').innerText = m.coalescedMessages.toLocaleString() + ' discarded updates';
+            document.getElementById('statActualP99').innerHTML = m.actualLatencyP99Us.toFixed(1) + ' <span class="text-xs text-slate-500">μs</span>';
+            document.getElementById('statHiddenLatency').innerHTML = m.expectedHiddenLatencyUs.toFixed(1) + ' <span class="text-xs text-slate-500">μs</span>';
+            document.getElementById('statOldestHidden').innerText = 'Oldest: ' + m.oldestHiddenLatencyUs.toFixed(1) + ' μs';
+            document.getElementById('statQueue').innerText = m.queueDepth;
+            document.getElementById('statVirtualBacklog').innerText = 'Backlog: ' + m.virtualBacklog.toLocaleString() + ' msgs';
+
+            // Pressure Badge
+            const pBadge = document.getElementById('pressureBadge');
+            const pRatio = document.getElementById('pressureRatio');
+            const pStatus = document.getElementById('pressureStatus');
+            pRatio.innerText = m.coalescingPressure.toFixed(2) + 'x';
+            pStatus.innerText = m.pressureStatus;
+
+            if (m.pressureStatus === 'CRITICAL') {
+                pBadge.className = "flex items-center space-x-2 px-3 py-1 rounded-lg border border-red-500 bg-red-950/80 text-red-300 text-xs font-bold glow-red";
+                pStatus.className = "px-1.5 py-0.2 rounded bg-red-500/30 text-[10px] text-red-200";
+            } else if (m.pressureStatus === 'WARNING') {
+                pBadge.className = "flex items-center space-x-2 px-3 py-1 rounded-lg border border-amber-500 bg-amber-950/80 text-amber-300 text-xs font-bold glow-amber";
+                pStatus.className = "px-1.5 py-0.2 rounded bg-amber-500/30 text-[10px] text-amber-200";
+            } else {
+                pBadge.className = "flex items-center space-x-2 px-3 py-1 rounded-lg border border-emerald-500/40 bg-emerald-950/40 text-emerald-400 text-xs font-bold";
+                pStatus.className = "px-1.5 py-0.2 rounded bg-emerald-500/20 text-[10px] text-emerald-300";
+            }
+
+            // Pipeline Stage Cards
+            document.getElementById('pipeFeedRate').innerText = Math.round(m.inputMessagesPerSec).toLocaleString() + '/s';
+            document.getElementById('pipeC1Ratio').innerText = (m.stage1CoalescingRatio * 100).toFixed(1) + '%';
+            document.getElementById('pipeC1Count').innerText = m.stage1CoalescedCount.toLocaleString();
+            document.getElementById('pipeClobRate').innerText = Math.round(m.processedMessagesPerSec).toLocaleString() + '/s';
+            document.getElementById('pipeC2Ratio').innerText = (m.stage2CoalescingRatio * 100).toFixed(1) + '%';
+            document.getElementById('pipeC2Count').innerText = m.stage2CoalescedCount.toLocaleString();
+            document.getElementById('pipePubRate').innerText = Math.round(m.publishedMessagesPerSec).toLocaleString() + '/s';
+
+            // Push to Charts
+            const nowTime = new Date().toLocaleTimeString();
+            if (chartTimes.length >= maxPoints) {
+                chartTimes.shift();
+                actualP99Data.shift();
+                hiddenData.shift();
+                oldestHiddenData.shift();
+                inputRateData.shift();
+                pubRateData.shift();
+                ratioData.shift();
+            }
+            chartTimes.push(nowTime);
+            actualP99Data.push(m.actualLatencyP99Us);
+            hiddenData.push(m.expectedHiddenLatencyUs);
+            oldestHiddenData.push(m.oldestHiddenLatencyUs);
+            inputRateData.push(Math.round(m.inputMessagesPerSec));
+            pubRateData.push(Math.round(m.publishedMessagesPerSec));
+            ratioData.push(m.coalescingRatio * 100);
+
+            if (latencyChart) latencyChart.update();
+            if (throughputChart) throughputChart.update();
+        }
+
+        // Simulation Actions
+        async function startSimulation() {
+            const scenario = document.getElementById('headerScenario').innerText;
+            const rate = parseInt(document.getElementById('inputRateSlider').value);
+            const burst = parseInt(document.getElementById('burstSlider').value);
+            const targetLat = parseFloat(document.getElementById('targetLatencySlider').value);
+
+            await fetch('/api/simulation/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ scenario: scenario, rate: rate, burstSize: burst, targetLatencyUs: targetLat })
+            });
+            isRunning = true;
+        }
+
+        async function stopSimulation() {
+            await fetch('/api/simulation/stop', { method: 'POST' });
+            isRunning = false;
+        }
+
+        async function pauseSimulation() {
+            await fetch('/api/simulation/pause', { method: 'POST' });
+        }
+
+        async function resumeSimulation() {
+            await fetch('/api/simulation/resume', { method: 'POST' });
+        }
+
+        async function resetSimulation() {
+            await fetch('/api/simulation/reset', { method: 'POST' });
+            chartTimes.length = 0;
+            actualP99Data.length = 0;
+            hiddenData.length = 0;
+            oldestHiddenData.length = 0;
+            inputRateData.length = 0;
+            pubRateData.length = 0;
+            ratioData.length = 0;
+            if (latencyChart) latencyChart.update();
+            if (throughputChart) throughputChart.update();
+        }
+
+        async function selectScenario(scenario) {
+            document.getElementById('headerScenario').innerText = scenario;
+            let defaultRate = 5000;
+            let defaultBurst = 1;
+            if (scenario === 'BURST') { defaultRate = 8000; defaultBurst = 500; }
+            else if (scenario === 'HIGH_LOAD') { defaultRate = 25000; defaultBurst = 100; }
+            else if (scenario === 'OVERLOAD') { defaultRate = 70000; defaultBurst = 2000; }
+            else if (scenario === 'EXTREME_COALESCING') { defaultRate = 150000; defaultBurst = 10000; }
+
+            document.getElementById('inputRateSlider').value = defaultRate;
+            document.getElementById('burstSlider').value = defaultBurst;
+            updateRateLabel(defaultRate);
+            document.getElementById('burstLabel').innerText = defaultBurst;
+
+            await fetch('/api/simulation/scenario', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ scenario: scenario })
+            });
+        }
+
+        function updateRateLabel(val) {
+            document.getElementById('rateLabel').innerText = parseInt(val).toLocaleString();
+        }
+
+        async function togglePipelineStages() {
+            const c1 = document.getElementById('toggleC1').checked;
+            const c2 = document.getElementById('toggleC2').checked;
+            await fetch('/api/simulation/coalescing', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ coalescer1: c1, coalescer2: c2 })
+            });
+        }
+
+        async function toggleRecording() {
+            if (!isRecording) {
+                const res = await fetch('/api/simulation/recording/start', { method: 'POST' });
+                const data = await res.json();
+                isRecording = true;
+                document.getElementById('recordingBadge').classList.remove('hidden');
+                document.getElementById('recordBtnText').innerText = 'Stop Recording';
+            } else {
+                const res = await fetch('/api/simulation/recording/stop', { method: 'POST' });
+                const data = await res.json();
+                isRecording = false;
+                document.getElementById('recordingBadge').classList.add('hidden');
+                document.getElementById('recordBtnText').innerText = 'Record Raw Stream (.bin)';
+                refreshRecordings();
+            }
+        }
+
+        // Offline Replay & Calibration
+        async function refreshRecordings() {
+            const res = await fetch('/api/replay/recordings');
+            const files = await res.json();
+            const select = document.getElementById('recordingSelect');
+            select.innerHTML = '';
+            if (files.length === 0) {
+                select.innerHTML = '<option value="">No recordings available</option>';
+            } else {
+                files.forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = f;
+                    opt.innerText = f;
+                    select.appendChild(opt);
+                });
+            }
+        }
+
+        async function executeReplay() {
+            const select = document.getElementById('recordingSelect');
+            const file = select.value;
+            if (!file) return;
+
+            const res = await fetch('/api/replay/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: file })
+            });
+            const data = await res.json();
+            renderReplayResults(data);
+        }
+
+        function renderReplayResults(res) {
+            document.getElementById('replayResultSection').classList.remove('hidden');
+            document.getElementById('resMatched').innerText = res.matchedSamples.toLocaleString();
+            
+            const biasUs = res.estimatorBiasNs / 1000.0;
+            const biasEl = document.getElementById('resBias');
+            biasEl.innerHTML = (biasUs >= 0 ? '+' : '') + biasUs.toFixed(1) + ' <span class="text-xs text-slate-500">μs</span>';
+            biasEl.className = Math.abs(biasUs) < 10 ? 'text-2xl font-bold font-mono mt-1 text-emerald-400' : 'text-2xl font-bold font-mono mt-1 text-amber-400';
+
+            document.getElementById('resMae').innerHTML = (res.meanAbsoluteErrorNs / 1000.0).toFixed(1) + ' <span class="text-xs text-slate-500">μs</span>';
+            document.getElementById('resP95').innerHTML = (res.p95AbsoluteErrorNs / 1000.0).toFixed(1) + ' <span class="text-xs text-slate-500">μs</span>';
+            document.getElementById('resCorrelation').innerText = res.pearsonCorrelation.toFixed(3);
+            document.getElementById('resRelError').innerText = res.relativeErrorPercent.toFixed(1) + '%';
+
+            latestCalibratedConfig = res.recommendedCalibration;
+            if (latestCalibratedConfig) {
+                const intUs = (latestCalibratedConfig.intercept / 1000.0).toFixed(1);
+                const wAvg = latestCalibratedConfig.avgHiddenLatencyWeight.toFixed(2);
+                const wDepth = latestCalibratedConfig.depthWeight.toFixed(1);
+                const wOld = latestCalibratedConfig.oldestHiddenLatencyWeight.toFixed(2);
+                document.getElementById('modelFormula').innerText = 
+                    `L_hat = ${intUs}μs + ${wAvg} * L_avg + ${wDepth} * depth + ${wOld} * L_oldest`;
+            }
+
+            // Render Replay Overlay Chart
+            const samplePairs = res.samplePairs || [];
+            const labels = samplePairs.map((s, idx) => '#' + s.sequenceId);
+            const estPoints = samplePairs.map(s => s.estimatedHiddenLatencyNs / 1000.0);
+            const truePoints = samplePairs.map(s => s.trueCounterfactualLatencyNs / 1000.0);
+
+            if (replayChart) replayChart.destroy();
+            const ctx = document.getElementById('replayComparisonChart').getContext('2d');
+            replayChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Online Estimated Latency (μs)',
+                            data: estPoints,
+                            borderColor: '#06B6D4',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'True Counterfactual Ground Truth (μs)',
+                            data: truePoints,
+                            borderColor: '#10B981',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { display: labels.length <= 100, ticks: { color: '#9CA3AF' } },
+                        y: {
+                            grid: { color: '#1F2937' },
+                            ticks: { color: '#9CA3AF' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#E5E7EB', font: { size: 12 } } }
+                    }
+                }
+            });
+        }
+
+        async function applyCalibration() {
+            if (!latestCalibratedConfig) return;
+            const res = await fetch('/api/replay/calibration/apply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(latestCalibratedConfig)
+            });
+            alert('Calibrated model successfully applied to live trading pipeline!');
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            initCharts();
+            connectSse();
+        });
+    </script>
+</body>
+</html>

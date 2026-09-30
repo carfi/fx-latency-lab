@@ -1,0 +1,37 @@
+{
+  "index_patterns": ["fx-latency-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "refresh_interval": "1s"
+    },
+    "mappings": {
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "eventType": { "type": "keyword" },
+        "simulationId": { "type": "keyword" },
+        "mode": { "type": "keyword" },
+        "component": { "type": "keyword" },
+        "currencyPair": { "type": "keyword" },
+        "sequenceId": { "type": "long" },
+        "actualLatencyNs": { "type": "long" },
+        "actualLatencyUs": { "type": "double" },
+        "expectedHiddenLatencyUs": { "type": "double" },
+        "oldestHiddenLatencyUs": { "type": "double" },
+        "coalescingDepth": { "type": "integer" },
+        "coalescingPressure": { "type": "double" },
+        "pressureStatus": { "type": "keyword" },
+        "bestBid": { "type": "double" },
+        "bestAsk": { "type": "double" },
+        "spread": { "type": "double" },
+        "matchedSamples": { "type": "integer" },
+        "estimatorBiasUs": { "type": "double" },
+        "maeUs": { "type": "double" },
+        "p95ErrorUs": { "type": "double" },
+        "correlation": { "type": "double" },
+        "relativeErrorPercent": { "type": "double" }
+      }
+    }
+  }
+}
