@@ -794,10 +794,10 @@
 
                         <div class="bg-dark-800/80 border border-dark-700 rounded-xl p-4">
                             <div class="text-amber-400 font-bold text-xs flex items-center space-x-1.5 uppercase tracking-wide">
-                                <span>2. Immediate Supercession</span>
+                                <span>2. Irrelevant Quantity Tier Update</span>
                             </div>
                             <p class="text-xs text-slate-300 mt-2">
-                                A liquidity provider amends their quote 2μs later. The original quote was transient and had <span class="text-amber-300 font-bold">zero trade execution impact</span>. Falsely treating it as delayed latency distorts metrics.
+                                An update changes top-of-book volume (e.g. 250k to 500k), but the client is requesting pricing for a 5M ticket. Because the volume change does not affect the client's requested tier price, it <span class="text-amber-300 font-bold">never triggers an outbound quote</span>.
                             </p>
                         </div>
 
