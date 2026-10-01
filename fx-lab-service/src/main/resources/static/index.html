@@ -695,20 +695,71 @@
                                     <div class="text-[11px] text-slate-400 mt-1">T_pub: 185μs</div>
                                     <div class="text-rose-400 font-bold mt-1">Lat: 140μs</div>
                                 </div>
-                            <p class="text-xs text-slate-400 mt-3 font-sans leading-relaxed">
-                                <strong class="text-blue-300">Counterfactual Ground Truth Definition:</strong>
-                                Each update <i>P<sub>i</sub></i> suffered a true counterfactual latency under non-coalesced FIFO execution. 
-                                Without coalescing, queuing delay compounds linearly (<i>O(N)</i> backlog), proving that coalescing concealed severe upstream pressure.
-                            </p>
+                            </div>
 
-                            <!-- Syntax Formula Box Rendered Below Paragraph -->
-                            <div class="mt-3 p-3.5 bg-dark-900/90 border border-blue-500/40 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-3 shadow-inner">
-                                <div class="flex items-center space-x-2">
-                                    <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono text-[10px] font-bold uppercase border border-blue-500/30">Formula</span>
-                                    <span class="text-xs text-slate-300 font-sans">Counterfactual Latency of Update <i>P<sub>i</sub></i>:</span>
+                            <!-- Detailed Counterfactual Explanation & Balanced Full-Width Formula Card -->
+                            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 mt-4 pt-3 border-t border-dark-700/60">
+                                <!-- Left Column: Detailed Conceptual Meaning -->
+                                <div class="lg:col-span-7 space-y-3">
+                                    <div class="flex items-center space-x-2 text-blue-300 font-bold text-xs uppercase tracking-wider">
+                                        <span class="text-base">💡</span>
+                                        <span>What Does "Counterfactual" Mean in Trading Latency?</span>
+                                    </div>
+                                    <p class="text-xs text-slate-300 font-sans leading-relaxed">
+                                        In causal inference and high-frequency trading, a <strong>counterfactual</strong> answers the fundamental <em>"What If?"</em> question:
+                                        <em class="text-cyan-200">"What would have been the exact latency suffered by every market price if coalescing had been disabled?"</em>
+                                    </p>
+                                    <div class="space-y-2 text-xs text-slate-400 font-sans">
+                                        <div class="flex items-start space-x-2">
+                                            <span class="text-amber-400 font-bold">▪</span>
+                                            <span><strong class="text-slate-200">The Observed World (Lane A):</strong> Coalescing drops intermediate ticks (<span class="line-through text-rose-400">P1, P2, P3</span>) to protect throughput. Because they never finish, naive APM monitors report zero latency for them, creating an illusion of speed.</span>
+                                        </div>
+                                        <div class="flex items-start space-x-2">
+                                            <span class="text-blue-400 font-bold">▪</span>
+                                            <span><strong class="text-slate-200">The Counterfactual World (Lane B):</strong> Replays the exact identical market data stream through a pure FIFO queue without dropping updates, allowing every single order to reach publication.</span>
+                                        </div>
+                                        <div class="flex items-start space-x-2">
+                                            <span class="text-emerald-400 font-bold">▪</span>
+                                            <span><strong class="text-slate-200">The Latency Debt:</strong> Comparing Lane A with Lane B reveals the <em>hidden queueing debt</em>—the backlog delays that were silently accumulating while the worker was stalled.</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="font-mono text-sm font-bold text-cyan-300 bg-dark-800/90 px-3.5 py-1.5 rounded-md border border-dark-600 tracking-wide">
-                                    L<sub>cf</sub>(P<sub>i</sub>) = T<sub>cf_pub</sub>(P<sub>i</sub>) − T<sub>in</sub>(P<sub>i</sub>)
+
+                                <!-- Right Column: Full-Width Mathematical Model Card -->
+                                <div class="lg:col-span-5">
+                                    <div class="bg-dark-900/90 border border-blue-500/40 rounded-xl p-4 space-y-3 shadow-lg">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-[11px] font-bold uppercase tracking-wider text-cyan-400 font-mono">Counterfactual Ground Truth</span>
+                                            <span class="text-[10px] px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-500/30 font-mono">Mathematical Definition</span>
+                                        </div>
+
+                                        <!-- Prominent Formula Box -->
+                                        <div class="p-3 bg-dark-800 rounded-lg border border-dark-600 text-center font-mono">
+                                            <div class="text-base font-bold text-cyan-300 tracking-wide">
+                                                L<sub>cf</sub>(P<sub>i</sub>) = T<sub>cf_pub</sub>(P<sub>i</sub>) − T<sub>in</sub>(P<sub>i</sub>)
+                                            </div>
+                                        </div>
+
+                                        <!-- Variable Breakdown -->
+                                        <div class="space-y-1.5 text-[11px] font-mono">
+                                            <div class="flex items-center justify-between border-b border-dark-700/60 pb-1">
+                                                <span class="text-cyan-400 font-bold">L<sub>cf</sub>(P<sub>i</sub>)</span>
+                                                <span class="text-right text-slate-400 font-sans">True counterfactual latency of tick <i>P<sub>i</sub></i></span>
+                                            </div>
+                                            <div class="flex items-center justify-between border-b border-dark-700/60 pb-1">
+                                                <span class="text-blue-400 font-bold">T<sub>cf_pub</sub>(P<sub>i</sub>)</span>
+                                                <span class="text-right text-slate-400 font-sans">Actual publish timestamp in FIFO replay</span>
+                                            </div>
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-emerald-400 font-bold">T<sub>in</sub>(P<sub>i</sub>)</span>
+                                                <span class="text-right text-slate-400 font-sans">Deterministic wire ingress timestamp</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="p-2 rounded bg-blue-950/40 border border-blue-800/30 text-[10px] text-blue-200 font-sans">
+                                            <strong>Offline Benchmark:</strong> This provides the exact ground-truth training set used by the Calibrator to optimize online regression weights.
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
