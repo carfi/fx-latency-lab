@@ -782,7 +782,7 @@
 
                 <div class="bg-dark-900/90 rounded-xl p-6 border border-dark-700 space-y-6">
                     <!-- The Dilemma: Non-BBO / Non-Opportunity updates -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-dark-800/80 border border-dark-700 rounded-xl p-4">
                             <div class="text-rose-400 font-bold text-xs flex items-center space-x-1.5 uppercase tracking-wide">
                                 <span>1. Inside-Spread Update</span>
@@ -798,15 +798,6 @@
                             </div>
                             <p class="text-xs text-slate-300 mt-2">
                                 An update changes top-of-book volume (e.g. 250k to 500k), but the client is requesting pricing for a 5M ticket. Because the volume change does not affect the client's requested tier price, it <span class="text-amber-300 font-bold">never triggers an outbound quote</span>.
-                            </p>
-                        </div>
-
-                        <div class="bg-dark-800/80 border border-dark-700 rounded-xl p-4">
-                            <div class="text-purple-400 font-bold text-xs flex items-center space-x-1.5 uppercase tracking-wide">
-                                <span>3. Order Cancellation</span>
-                            </div>
-                            <p class="text-xs text-slate-300 mt-2">
-                                A size modification deep in the order book book is cancelled. It does not qualify as an actionable <span class="text-purple-300 font-bold">publication opportunity</span> for algorithmic takers.
                             </p>
                         </div>
                     </div>
