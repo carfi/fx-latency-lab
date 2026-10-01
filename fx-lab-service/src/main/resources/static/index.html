@@ -912,6 +912,51 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- The Practical Architectural Insight: Why Bounds in Live, Calibration in Offline -->
+                        <div class="mt-4 p-4 rounded-xl bg-dark-900 border border-dark-700/80 space-y-3 text-left">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
+                                    <span class="text-base">⚖️</span>
+                                    <span>The Core Dilemma: If We Cannot Predict the Future, Why Calibrate?</span>
+                                </div>
+                                <span class="px-2 py-0.5 rounded bg-dark-800 text-slate-400 border border-dark-700 text-[10px] font-mono">Production Architecture Principle</span>
+                            </div>
+
+                            <p class="text-xs text-slate-300 font-sans leading-relaxed">
+                                In real FX markets, conditions shift abruptly (e.g., quiet Asian night trading vs volatile US Non-Farm Payrolls). 
+                                A static regression formula trained on morning data will inevitably misestimate delays during an afternoon flash surge. 
+                                <strong>How do senior trading architects solve this? By splitting responsibilities:</strong>
+                            </p>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                                <!-- Live Strategy -->
+                                <div class="bg-dark-800/80 border border-emerald-500/30 rounded-lg p-3 space-y-1.5">
+                                    <div class="flex items-center justify-between text-xs font-bold text-emerald-400">
+                                        <span>1. Live Real-Time: Use Deterministic Bounds</span>
+                                        <span class="font-mono text-[10px] bg-emerald-950 px-1.5 py-0.5 rounded text-emerald-300">&lt; 1 ns</span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-300 leading-normal font-sans">
+                                        Do not gamble production risk on a statistical model that could drift during a crisis. 
+                                        In the hot path, compute <strong>Best Case (<code class="text-emerald-300">L_newest</code>)</strong> and <strong>Worst Case (<code class="text-rose-300">L_oldest</code>)</strong> using pure integer subtraction. 
+                                        If the worst case is within your SLA, your system is mathematically guaranteed to be safe—zero model risk, zero floating-point math.
+                                    </p>
+                                </div>
+
+                                <!-- Offline Strategy -->
+                                <div class="bg-dark-800/80 border border-purple-500/30 rounded-lg p-3 space-y-1.5">
+                                    <div class="flex items-center justify-between text-xs font-bold text-purple-400">
+                                        <span>2. Offline Post-Trade: Use Calibration for Benchmarking</span>
+                                        <span class="font-mono text-[10px] bg-purple-950 px-1.5 py-0.5 rounded text-purple-300">Deep Analytics</span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-300 leading-normal font-sans">
+                                        Save the heavy counterfactual replay for the offline cluster! 
+                                        Here you have time to run dual-pass simulations, filter publication opportunities, and fit OLS models to conduct 
+                                        <strong>Transaction Cost Analysis (TCA)</strong>, audit whether coalescing caused missed client fills, and size queue buffers accurately for future hardware deployments.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
