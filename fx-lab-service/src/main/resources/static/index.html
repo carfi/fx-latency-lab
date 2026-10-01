@@ -839,11 +839,78 @@
                             </div>
                         </div>
 
-                        <!-- Resulting Formula Banner -->
-                        <div class="bg-dark-900 p-3 rounded-lg border border-dark-700 text-xs font-mono text-center text-slate-300">
-                            <span class="text-slate-400 font-sans">Learned Calibrated Model: </span>
-                            <span class="text-cyan-300 font-bold">L_hat = β0 + β1 · L_avg + β2 · CoalescingDepth + β3 · L_oldest</span>
-                            <span class="text-emerald-400 ml-2 font-bold">(Filters out non-opportunity phantom latency)</span>
+                        <!-- Detailed OLS Regression Explanation & Full-Width Formula Card -->
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 mt-4 pt-3 border-t border-dark-700/60 text-left">
+                            <!-- Left Column: Detailed Conceptual Meaning -->
+                            <div class="lg:col-span-7 space-y-3">
+                                <div class="flex items-center space-x-2 text-purple-300 font-bold text-xs uppercase tracking-wider">
+                                    <span class="text-base">💡</span>
+                                    <span>What Does OLS Regression Mean in Latency Calibration?</span>
+                                </div>
+                                <p class="text-xs text-slate-300 font-sans leading-relaxed">
+                                    <strong>OLS (Ordinary Least Squares)</strong> is a statistical optimization technique that calculates the optimal weighting coefficients 
+                                    (&beta;<sub>0</sub>, &beta;<sub>1</sub>, &beta;<sub>2</sub>, &beta;<sub>3</sub>) by minimizing the sum of squared differences between our online estimates and offline ground truth:
+                                </p>
+                                <div class="space-y-2 text-xs text-slate-400 font-sans">
+                                    <div class="flex items-start space-x-2">
+                                        <span class="text-purple-400 font-bold">▪</span>
+                                        <span><strong class="text-slate-200">The Calibration Problem:</strong> Coalesced ticks contain noise (e.g., inside-spread quotes, cancellations) that would never have triggered a publication. Blindly counting them creates phantom latency inflation.</span>
+                                    </div>
+                                    <div class="flex items-start space-x-2">
+                                        <span class="text-cyan-400 font-bold">▪</span>
+                                        <span><strong class="text-slate-200">How OLS Solves It:</strong> By fitting against the true publication timestamps discovered during Pass 2 (Coalescing OFF), OLS automatically downweights non-actionable ticks and finds the true predictive relationship.</span>
+                                    </div>
+                                    <div class="flex items-start space-x-2">
+                                        <span class="text-emerald-400 font-bold">▪</span>
+                                        <span><strong class="text-slate-200">Zero Hot-Path Overhead:</strong> Matrix inversion <code class="text-purple-300 bg-dark-800 px-1 py-0.5 rounded">&beta; = (X<sup>T</sup>X)<sup>-1</sup>X<sup>T</sup>y</code> happens offline. In production, the live engine evaluates the model in <strong>&lt; 2 nanoseconds</strong> via scalar registers with zero heap allocations.</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right Column: Full-Width Mathematical Model Card -->
+                            <div class="lg:col-span-5">
+                                <div class="bg-dark-900/90 border border-purple-500/40 rounded-xl p-4 space-y-3 shadow-lg">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-[11px] font-bold uppercase tracking-wider text-purple-400 font-mono">Calibrated Estimator Model</span>
+                                        <span class="text-[10px] px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-500/30 font-mono">Ordinary Least Squares</span>
+                                    </div>
+
+                                    <!-- Prominent Formula Box -->
+                                    <div class="p-3 bg-dark-800 rounded-lg border border-dark-600 text-center font-mono">
+                                        <div class="text-[11px] text-slate-400 font-sans mb-1">OLS Minimization Objective:</div>
+                                        <div class="text-xs text-slate-300 font-mono mb-2">
+                                            min<sub>&beta;</sub> &Sigma; ( L<sub>true</sub> − L̂ )<sup>2</sup>
+                                        </div>
+                                        <div class="text-sm font-bold text-cyan-300 tracking-wide border-t border-dark-700/80 pt-1.5">
+                                            L̂ = &beta;<sub>0</sub> + &beta;<sub>1</sub>·L<sub>avg</sub> + &beta;<sub>2</sub>·Depth + &beta;<sub>3</sub>·L<sub>oldest</sub>
+                                        </div>
+                                    </div>
+
+                                    <!-- Variable Breakdown -->
+                                    <div class="space-y-1.5 text-[11px] font-mono">
+                                        <div class="flex items-center justify-between border-b border-dark-700/60 pb-1">
+                                            <span class="text-purple-400 font-bold">L̂</span>
+                                            <span class="text-right text-slate-400 font-sans">Predicted hidden latency (live production metric)</span>
+                                        </div>
+                                        <div class="flex items-center justify-between border-b border-dark-700/60 pb-1">
+                                            <span class="text-cyan-400 font-bold">&beta;<sub>0</sub></span>
+                                            <span class="text-right text-slate-400 font-sans">Baseline intercept constant (fixed pipeline delay)</span>
+                                        </div>
+                                        <div class="flex items-center justify-between border-b border-dark-700/60 pb-1">
+                                            <span class="text-amber-400 font-bold">&beta;<sub>1</sub>, &beta;<sub>2</sub>, &beta;<sub>3</sub></span>
+                                            <span class="text-right text-slate-400 font-sans">Regression weights for mean delay, depth, and oldest tick</span>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-emerald-400 font-bold">L<sub>true</sub></span>
+                                            <span class="text-right text-slate-400 font-sans">Observed ground truth from Coalescing OFF replay</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="p-2 rounded bg-purple-950/40 border border-purple-800/30 text-[10px] text-purple-200 font-sans">
+                                        <strong>Live Dynamic Reload:</strong> Calibrated weights can be hot-applied to the live pipeline via <code class="text-emerald-400">/api/replay/calibration/apply</code> with zero restart.
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
