@@ -502,7 +502,13 @@
                             <p class="text-xs text-slate-400">Why measuring only surviving published prices hides the worst-case queuing delays</p>
                         </div>
                     </div>
-                    <span class="text-xs px-2.5 py-1 rounded bg-rose-950/60 border border-rose-600/40 text-rose-300 font-mono font-medium">The Telemetry Trap</span>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="openBibliographyModal(1)" class="px-3 py-1 rounded-lg bg-dark-700 hover:bg-dark-600 text-slate-300 hover:text-cyan-300 border border-dark-600 text-xs font-mono font-medium transition flex items-center space-x-1.5 shadow-sm">
+                            <span>📚</span>
+                            <span>Bibliography</span>
+                        </button>
+                        <span class="text-xs px-2.5 py-1 rounded bg-rose-950/60 border border-rose-600/40 text-rose-300 font-mono font-medium">The Telemetry Trap</span>
+                    </div>
                 </div>
 
                 <!-- Visual Timeline Diagram -->
@@ -624,7 +630,13 @@
                             <p class="text-xs text-slate-400">Hypothetical reconstruction of latency under pure non-coalesced FIFO execution</p>
                         </div>
                     </div>
-                    <span class="text-xs px-2.5 py-1 rounded bg-blue-950/60 border border-blue-600/40 text-blue-300 font-mono font-medium">Reconstruction Theory</span>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="openBibliographyModal(2)" class="px-3 py-1 rounded-lg bg-dark-700 hover:bg-dark-600 text-slate-300 hover:text-cyan-300 border border-dark-600 text-xs font-mono font-medium transition flex items-center space-x-1.5 shadow-sm">
+                            <span>📚</span>
+                            <span>Bibliography</span>
+                        </button>
+                        <span class="text-xs px-2.5 py-1 rounded bg-blue-950/60 border border-blue-600/40 text-blue-300 font-mono font-medium">Reconstruction Theory</span>
+                    </div>
                 </div>
 
                 <!-- Two Parallel Execution Lanes Diagram -->
@@ -777,7 +789,13 @@
                             <p class="text-xs text-slate-400">Why not all coalesced prices matter, and how offline dual-replay calibrates true latency</p>
                         </div>
                     </div>
-                    <span class="text-xs px-2.5 py-1 rounded bg-purple-950/60 border border-purple-600/40 text-purple-300 font-mono font-medium">Filtering & Calibration</span>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="openBibliographyModal(3)" class="px-3 py-1 rounded-lg bg-dark-700 hover:bg-dark-600 text-slate-300 hover:text-cyan-300 border border-dark-600 text-xs font-mono font-medium transition flex items-center space-x-1.5 shadow-sm">
+                            <span>📚</span>
+                            <span>Bibliography</span>
+                        </button>
+                        <span class="text-xs px-2.5 py-1 rounded bg-purple-950/60 border border-purple-600/40 text-purple-300 font-mono font-medium">Filtering & Calibration</span>
+                    </div>
                 </div>
 
                 <div class="bg-dark-900/90 rounded-xl p-6 border border-dark-700 space-y-6">
@@ -963,6 +981,10 @@
                         </div>
                     </div>
                     <div class="flex items-center space-x-2">
+                        <button onclick="openBibliographyModal(4)" class="px-3 py-1 rounded-lg bg-dark-700 hover:bg-dark-600 text-slate-300 hover:text-cyan-300 border border-dark-600 text-xs font-mono font-medium transition flex items-center space-x-1.5 shadow-sm">
+                            <span>📚</span>
+                            <span>Bibliography</span>
+                        </button>
                         <span class="px-2.5 py-1 rounded bg-emerald-950 border border-emerald-500/50 text-emerald-300 font-mono text-xs font-bold">
                             ✓ Final Implemented Architecture
                         </span>
@@ -1070,8 +1092,191 @@
 
     </main>
 
+    <!-- ================= BIBLIOGRAPHY & ACADEMIC REFERENCES MODAL ================= -->
+    <div id="bibliographyModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="relative bg-dark-900 border border-dark-600 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5">
+            <!-- Modal Header -->
+            <div class="flex items-start justify-between border-b border-dark-700 pb-3">
+                <div class="space-y-1">
+                    <span id="bibModalBadge" class="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-dark-800 text-cyan-400 border border-dark-700">Visual 01</span>
+                    <h3 id="bibModalTitle" class="text-lg font-bold text-slate-100">References & Literature</h3>
+                </div>
+                <button onclick="closeBibliographyModal()" class="text-slate-400 hover:text-slate-100 p-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-sm transition">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Modal Citation Items Container -->
+            <div id="bibModalContent" class="space-y-3.5 max-h-[60vh] overflow-y-auto pr-1">
+                <!-- Injected via JavaScript -->
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="flex items-center justify-between pt-3 border-t border-dark-700 text-xs text-slate-400">
+                <span>Core foundational literature cited in this project.</span>
+                <button onclick="closeBibliographyModal()" class="px-4 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 text-slate-200 border border-dark-600 text-xs font-semibold transition">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Client-side Logic -->
     <script>
+        // Bibliography Data & Handlers
+        const bibliographyData = {
+            1: {
+                badge: "Visual 01: Coordinated Omission & The Measurement Illusion",
+                title: "Academic & Industry References: Coordinated Omission",
+                items: [
+                    {
+                        title: "HdrHistogram: A High Dynamic Range (HDR) Histogram",
+                        author: "Gil Tene (CTO & Co-founder, Azul Systems)",
+                        type: "Open-Source Library & Specification",
+                        link: "https://github.com/HdrHistogram/HdrHistogram",
+                        notes: "The definitive library designed for capturing latency distributions without coordinated omission. Introduces recordValueWithExpectedInterval to accurately account for omitted delays during system stalls."
+                    },
+                    {
+                        title: "How NOT to Measure Latency (Keynote Presentation)",
+                        author: "Gil Tene (Azul Systems)",
+                        type: "QCon & Strange Loop Technical Keynote",
+                        link: "https://www.youtube.com/watch?v=lJ8ydIuPFeU",
+                        notes: "Seminal presentation demonstrating how traditional APM tools produce deceptive P99 graphs by failing to record queued requests that never completed or were conflated during worker stalls."
+                    },
+                    {
+                        title: "Coordinated Omission in Microsecond Systems",
+                        author: "Martin Thompson (Mechanical Sympathy)",
+                        type: "Systems Architecture Article",
+                        link: "https://mechanical-sympathy.blogspot.com/",
+                        notes: "Examines how low-latency financial systems and lock-free ring buffers mask queue delays when measuring only service time instead of total system response time."
+                    }
+                ]
+            },
+            2: {
+                badge: "Visual 02: Counterfactual Latency & Queueing Physics",
+                title: "Academic References: Counterfactual Inference & Queuing",
+                items: [
+                    {
+                        title: "Causality: Models, Reasoning, and Inference",
+                        author: "Judea Pearl (Turing Award Laureate, UCLA)",
+                        type: "Book (Cambridge University Press)",
+                        link: "https://doi.org/10.1017/CBO9780511803161",
+                        notes: "Foundational mathematical framework for counterfactual queries (Y_x(u)). In our trading lab, defines the counterfactual question: 'What would the publication timestamp have been if coalescing had been disabled?'"
+                    },
+                    {
+                        title: "Queueing Systems, Volume 1: Theory",
+                        author: "Leonard Kleinrock (UCLA / ARPANET Pioneer)",
+                        type: "Textbook (John Wiley & Sons)",
+                        link: "https://www.wiley.com/en-us/Queueing+Systems%2C+Volume+1%3A+Theory-p-9780471491101",
+                        notes: "Formalizes FIFO backlog inflation, Lindley's integral equations, and demonstrates why uncoalesced queue waiting times compound linearly (O(N) backlog) during sustained input bursts."
+                    },
+                    {
+                        title: "The Single Server Queue in Heavy Traffic",
+                        author: "J. F. C. Kingman (Cambridge Philosophical Society)",
+                        type: "Seminal Paper (1961)",
+                        link: "https://doi.org/10.1017/S0305004100035608",
+                        notes: "Kingman's formula proving that as traffic intensity approaches 1 (saturation), queue delays explode non-linearly, showing why price coalescing is necessary to prevent buffer collapse."
+                    }
+                ]
+            },
+            3: {
+                badge: "Visual 03: Publication Opportunities & OLS Calibration",
+                title: "Academic References: Market Microstructure & Econometrics",
+                items: [
+                    {
+                        title: "Empirical Market Microstructure: Securities Trading",
+                        author: "Joel Hasbrouck (Stern School of Business, NYU)",
+                        type: "Book (Oxford University Press)",
+                        link: "https://global.oup.com/academic/product/empirical-market-microstructure-9780195301649",
+                        notes: "Covers quote-to-trade ratios, BBO volatility vs inside-spread updates, and why non-BBO price adjustments represent informational noise rather than actionable client publication events."
+                    },
+                    {
+                        title: "Market Microstructure Theory",
+                        author: "Maureen O'Hara (Johnson Graduate School of Management, Cornell)",
+                        type: "Monograph (Blackwell Publishing)",
+                        link: "https://www.wiley.com/en-us/Market+Microstructure+Theory-p-9780631207610",
+                        notes: "Foundational analysis of tiered quantity pricing and order size thresholds, explaining why quote updates that don't satisfy a client's requested quantity tier never trigger outbound price updates."
+                    },
+                    {
+                        title: "The Elements of Statistical Learning (OLS & Regularization)",
+                        author: "Trevor Hastie, Robert Tibshirani, Jerome Friedman (Stanford)",
+                        type: "Book (Springer Series in Statistics)",
+                        link: "https://hastie.su.domains/ElemStatLearn/",
+                        notes: "Mathematical derivation of Ordinary Least Squares (OLS) closed-form regression β = (X^T X)^(-1) X^T y, minimizing residual sum of squares and downweighting irrelevant feature noise."
+                    }
+                ]
+            },
+            4: {
+                badge: "Visual 04: The Three-Bound Model & Low-Latency Architecture",
+                title: "Industry References: Low-Latency Systems Architecture",
+                items: [
+                    {
+                        title: "The LMAX Disruptor: High Performance Alternative to Bounded Queues",
+                        author: "Martin Thompson, Dave Farley, Michael Barker, Patricia Gee",
+                        type: "Architecture Technical Paper",
+                        link: "https://lmax-exchange.github.io/disruptor/",
+                        notes: "The blueprint for lock-free, zero-allocation ring buffers and mechanical sympathy in financial exchanges, inspiring our slot buffer design and zero-allocation primitive state."
+                    },
+                    {
+                        title: "Low-Latency Microsecond Systems in Java",
+                        author: "Peter Lawrey (Chronicle Software)",
+                        type: "Systems Engineering Guide",
+                        link: "https://chronicle.software/",
+                        notes: "Best practices for sub-microsecond Java matching engines: primitive registers, zero heap GC allocation, and bounded worst-case/best-case execution envelopes."
+                    },
+                    {
+                        title: "SO_TIMESTAMPING and Hardware Network Timestamping",
+                        author: "Linux Kernel Networking Documentation & IEEE 1588 PTP",
+                        type: "Kernel Specification & Standards",
+                        link: "https://docs.kernel.org/networking/timestamping.html",
+                        notes: "Standards for capturing hardware wire ingress (T_in) versus application user-space publication (T_pub) timestamps in high-frequency trading."
+                    }
+                ]
+            }
+        };
+
+        function openBibliographyModal(visualIndex) {
+            const data = bibliographyData[visualIndex];
+            if (!data) return;
+
+            document.getElementById('bibModalBadge').innerText = data.badge;
+            document.getElementById('bibModalTitle').innerText = data.title;
+
+            const container = document.getElementById('bibModalContent');
+            container.innerHTML = data.items.map(item => `
+                <div class="bg-dark-800/90 border border-dark-700 hover:border-cyan-500/40 rounded-xl p-4 transition space-y-2">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="text-sm font-bold text-cyan-300 hover:text-cyan-200 hover:underline flex items-center space-x-1.5">
+                                <span>${item.title}</span>
+                                <span class="text-xs text-slate-400">↗</span>
+                            </a>
+                            <div class="text-xs text-slate-400 font-mono mt-0.5">${item.author}</div>
+                        </div>
+                        <span class="px-2 py-0.5 rounded bg-dark-700 text-slate-300 text-[10px] font-mono whitespace-nowrap border border-dark-600">${item.type}</span>
+                    </div>
+                    <p class="text-xs text-slate-300 font-sans leading-relaxed pt-1 border-t border-dark-700/60">
+                        ${item.notes}
+                    </p>
+                </div>
+            `).join('');
+
+            document.getElementById('bibliographyModal').classList.remove('hidden');
+        }
+
+        function closeBibliographyModal() {
+            document.getElementById('bibliographyModal').classList.add('hidden');
+        }
+
+        // Close on Escape or click outside
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeBibliographyModal();
+        });
+        document.addEventListener('click', (e) => {
+            const modal = document.getElementById('bibliographyModal');
+            if (e.target === modal) closeBibliographyModal();
+        });
+
         // State
         let currentTab = 'dashboard';
         let isRecording = false;
