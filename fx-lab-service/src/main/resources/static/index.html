@@ -977,7 +977,7 @@
                         <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center font-bold text-emerald-400 font-mono text-sm">04</div>
                         <div>
                             <h3 class="text-lg font-bold text-slate-100">Fast Real-Time Online Solution: The Three-Bound Model</h3>
-                            <p class="text-xs text-slate-400">Zero-allocation bounded estimation implemented in this lab's live trading pipeline</p>
+                            <p class="text-xs text-slate-400">Splitting responsibilities: We cannot predict future regime shifts, so live trading relies on deterministic physical bounds while offline handles deep calibration</p>
                         </div>
                     </div>
                     <div class="flex items-center space-x-2">
@@ -992,12 +992,48 @@
                 </div>
 
                 <div class="bg-dark-900/90 rounded-xl p-6 border border-dark-700 space-y-6">
+                    <!-- The Architectural Reality: Why We Split Responsibilities -->
+                    <div class="bg-dark-800/80 border border-emerald-500/30 rounded-xl p-4 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-2 text-emerald-400 font-bold text-xs uppercase tracking-wider font-mono">
+                                <span class="text-base">🛡️</span>
+                                <span>The Engineering Challenge: Why We Split Responsibilities</span>
+                            </div>
+                            <span class="px-2 py-0.5 rounded bg-dark-900 border border-dark-700 text-slate-400 text-[10px] font-mono">Core System Architecture</span>
+                        </div>
+                        <p class="text-xs text-slate-300 font-sans leading-relaxed">
+                            In live FX markets, <strong>we cannot reliably predict the future</strong>. Volatility spikes (e.g. Non-Farm Payrolls, central bank surprises) cause violent regime shifts where queuing delays compound non-linearly. 
+                            If a live matching engine relied strictly on a statistical regression model during a liquidity crunch, model drift could hide a severe operational outage.
+                        </p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-sans pt-1">
+                            <div class="bg-dark-900/90 p-3 rounded-lg border border-dark-700 space-y-1">
+                                <div class="font-bold text-cyan-300 flex items-center space-x-1.5">
+                                    <span>⚡</span>
+                                    <span>1. Live Real-Time: Deterministic Physical Bounds</span>
+                                </div>
+                                <p class="text-[11px] text-slate-400 leading-normal">
+                                    Compute the absolute <strong>physical bounds</strong> (<code class="text-emerald-300">L_newest</code> and <code class="text-rose-300">L_oldest</code>) using two 64-bit CPU register subtractions (&lt; 1 ns). 
+                                    Mathematical bounds have <strong>zero model risk</strong>—if the worst-case bound complies with client SLA, you are guaranteed safe regardless of market chaos.
+                                </p>
+                            </div>
+                            <div class="bg-dark-900/90 p-3 rounded-lg border border-dark-700 space-y-1">
+                                <div class="font-bold text-purple-300 flex items-center space-x-1.5">
+                                    <span>🔬</span>
+                                    <span>2. Offline Post-Trade: Heavy Calibration & Benchmarking</span>
+                                </div>
+                                <p class="text-[11px] text-slate-400 leading-normal">
+                                    Leave the heavy counterfactual dual-pass replay for the offline cluster. 
+                                    Here you have unlimited compute to audit historical fills, measure adverse selection, evaluate TCA (Transaction Cost Analysis), and calibrate baseline models without stalling the production thread.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Concept summary -->
                     <p class="text-xs text-slate-300 leading-relaxed max-w-4xl">
-                        In a live low-latency trading engine, running a shadow non-coalesced pipeline is impossible without doubling CPU utilization and cache contention. 
-                        Instead, the <code class="text-cyan-300 bg-dark-800 px-1 py-0.5 rounded">OnlineHiddenLatencyEstimator</code> tracks 4 primitive 64-bit numbers in cache: 
+                        To maintain absolute mechanical sympathy, the <code class="text-cyan-300 bg-dark-800 px-1 py-0.5 rounded">OnlineHiddenLatencyEstimator</code> tracks 4 primitive 64-bit numbers in cache: 
                         <code class="text-slate-400">count</code>, <code class="text-slate-400">sumTimestamp</code>, <code class="text-slate-400">oldestTimestamp</code>, and <code class="text-slate-400">newestTimestamp</code>. 
-                        At publication time, it computes three bounds in <strong>&lt; 6.3 nanoseconds</strong> with <strong>zero heap allocations</strong>:
+                        At publication time, it computes the bounding envelope in <strong>&lt; 6.3 nanoseconds</strong> with <strong>zero heap allocations</strong>:
                     </p>
 
                     <!-- The 3 Bounding Cards -->
@@ -1006,16 +1042,16 @@
                         <div class="bg-dark-800 border-t-4 border-t-emerald-500 border-x border-b border-dark-700 rounded-xl p-5 space-y-3">
                             <div class="flex items-center justify-between">
                                 <span class="text-xs font-bold text-emerald-400 tracking-wider uppercase font-mono">🟢 Best Case Bound</span>
-                                <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 font-mono">L_newest</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 font-mono">Floor: L_newest</span>
                             </div>
                             <div class="text-xl font-bold font-mono text-slate-100">
                                 T_pub - T_newest
                             </div>
                             <p class="text-xs text-slate-400 leading-relaxed">
-                                <strong>Optimistic Hypothesis:</strong> Only the newest price update was significant. Older coalesced updates were transient noise or obsolete quotes that would have immediately been superseded.
+                                <strong>Physical Lower Floor:</strong> The freshest price update in the coalesced batch. Represents the best conceivable latency assuming older updates were irrelevant noise.
                             </p>
                             <div class="pt-2 border-t border-dark-700 text-[11px] font-mono text-emerald-400">
-                                Minimum conceivable latency delay
+                                Guaranteed physical minimum delay
                             </div>
                         </div>
 
@@ -1023,13 +1059,13 @@
                         <div class="bg-dark-800 border-t-4 border-t-amber-500 border-x border-b border-dark-700 rounded-xl p-5 space-y-3 shadow-lg glow-amber">
                             <div class="flex items-center justify-between">
                                 <span class="text-xs font-bold text-amber-400 tracking-wider uppercase font-mono">🟡 Expected Case (Live Model)</span>
-                                <span class="text-[10px] px-2 py-0.5 rounded bg-amber-950 text-amber-300 font-mono">L_hat (OLS Calibrated)</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded bg-amber-950 text-amber-300 font-mono">Damper: L_hat</span>
                             </div>
                             <div class="text-xl font-bold font-mono text-amber-300">
                                 β0 + β1·L_avg + β2·depth
                             </div>
                             <p class="text-xs text-slate-300 leading-relaxed">
-                                <strong>Real-Time Estimator:</strong> Computes the statistically weighted expected hidden latency, defaulting to mean arrival delay <code class="text-amber-200">T_pub - (sumTimestamps / N)</code> and calibrated via offline ground truth.
+                                <strong>Operational Heuristic Damper:</strong> Acts as a smooth statistical signal to prevent alarm fatigue from transient outliers while providing early warning of building pressure.
                             </p>
                             <div class="pt-2 border-t border-dark-700 text-[11px] font-mono text-amber-300 font-semibold">
                                 Primary signal driving Coalescing Pressure
@@ -1040,16 +1076,16 @@
                         <div class="bg-dark-800 border-t-4 border-t-rose-500 border-x border-b border-dark-700 rounded-xl p-5 space-y-3">
                             <div class="flex items-center justify-between">
                                 <span class="text-xs font-bold text-rose-400 tracking-wider uppercase font-mono">🔴 Worst Case Bound</span>
-                                <span class="text-[10px] px-2 py-0.5 rounded bg-rose-950 text-rose-300 font-mono">L_oldest</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded bg-rose-950 text-rose-300 font-mono">Ceiling: L_oldest</span>
                             </div>
                             <div class="text-xl font-bold font-mono text-slate-100">
                                 T_pub - T_oldest
                             </div>
                             <p class="text-xs text-slate-400 leading-relaxed">
-                                <strong>Pessimistic Hypothesis:</strong> The very first price update in the coalesced batch was a critical trade or market movement that suffered the entire queue stall delay.
+                                <strong>Deterministic Physical Ceiling:</strong> The oldest update in the batch. Absolute upper ceiling on delay—zero model risk, providing guaranteed compliance safety.
                             </p>
                             <div class="pt-2 border-t border-dark-700 text-[11px] font-mono text-rose-400">
-                                Absolute ceiling on hidden delay
+                                Non-negotiable hard SLA check
                             </div>
                         </div>
                     </div>
